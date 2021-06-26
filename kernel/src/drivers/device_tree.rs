@@ -33,6 +33,7 @@ struct DtbHeader {
 }
 
 pub fn init(dtb: usize) {
+    info!("DTB: {:#x}", dtb);
     let header = unsafe { &*(dtb as *const DtbHeader) };
     let magic = u32::from_be(header.magic);
     if magic == DEVICE_TREE_MAGIC {

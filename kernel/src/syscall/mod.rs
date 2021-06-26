@@ -501,6 +501,8 @@ pub enum SysError {
     ENOLCK = 37,
     ENOSYS = 38,
     ENOTEMPTY = 39,
+    ELOOP = 40,
+    EIDRM = 43,
     ENOTSOCK = 80,
     ENOPROTOOPT = 92,
     EPFNOSUPPORT = 96,
@@ -508,6 +510,7 @@ pub enum SysError {
     ENOBUFS = 105,
     EISCONN = 106,
     ENOTCONN = 107,
+    ETIMEDOUT = 110,
     ECONNREFUSED = 111,
 }
 
@@ -558,6 +561,7 @@ impl fmt::Display for SysError {
                 ENOLCK => "No record locks available",
                 ENOSYS => "Function not implemented",
                 ENOTEMPTY => "Directory not empty",
+                ELOOP => "Too many symbolic links encountered",
                 ENOTSOCK => "Socket operation on non-socket",
                 ENOPROTOOPT => "Protocol not available",
                 EPFNOSUPPORT => "Protocol family not supported",

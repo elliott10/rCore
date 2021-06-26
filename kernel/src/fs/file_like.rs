@@ -30,13 +30,11 @@ impl FileLike {
         Ok(len)
     }
     pub fn ioctl(&mut self, request: usize, arg1: usize, arg2: usize, arg3: usize) -> SysResult {
-        match self {
+        let len = match self {
             FileLike::File(file) => file.io_control(request as u32, arg1)?,
-            FileLike::Socket(socket) => {
-                socket.ioctl(request, arg1, arg2, arg3)?;
-            }
-        }
-        Ok(0)
+            FileLike::Socket(socket) => socket.ioctl(request, arg1, arg2, arg3)?,
+        };
+        Ok(len)
     }
     pub fn poll(&self) -> Result<PollStatus, SysError> {
         let status = match self {

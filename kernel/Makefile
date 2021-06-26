@@ -34,8 +34,8 @@
 
 arch ?= riscv64
 board ?= none
-mode ?= release
-LOG  ?=
+mode ?= debug
+LOG  ?= warn
 graphic ?= off
 smp  ?= 4
 pci_passthru ?=

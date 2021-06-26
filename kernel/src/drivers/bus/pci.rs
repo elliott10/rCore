@@ -19,6 +19,8 @@ const PCI_MSI_CTRL_CAP: u16 = 0x00;
 const PCI_MSI_ADDR: u16 = 0x04;
 const PCI_MSI_UPPER_ADDR: u16 = 0x08;
 const PCI_MSI_DATA: u16 = 0x0C;
+const PCI_MSI_DATA_32: u16 = 0x08;
+const PCI_MSI_DATA_64: u16 = 0x0C;
 
 const PCI_CAP_ID_MSI: u8 = 0x05;
 
@@ -96,6 +98,7 @@ unsafe fn enable(loc: Location) -> Option<u32> {
     while cap_ptr > 0 {
         let cap_id = am.read8(ops, loc, cap_ptr);
         if cap_id == PCI_CAP_ID_MSI {
+            let orig_ctrl = am.read32(ops, loc, cap_ptr + PCI_MSI_CTRL_CAP);
             // The manual Volume 3 Chapter 10.11 Message Signalled Interrupts
             // 0 is (usually) the apic id of the bsp.
             am.write32(ops, loc, cap_ptr + PCI_MSI_ADDR, 0xfee00000 | (0 << 12));
@@ -103,10 +106,17 @@ unsafe fn enable(loc: Location) -> Option<u32> {
             let irq = MSI_IRQ;
             assigned_irq = Some(irq);
             // we offset all our irq numbers by 32
-            am.write32(ops, loc, cap_ptr + PCI_MSI_DATA, irq + 32);
+            //am.write32(ops, loc, cap_ptr + PCI_MSI_DATA, irq + 32);
+            if (orig_ctrl >> 16) & (1 << 7) != 0 {
+                // 64bit
+                am.write32(ops, loc, cap_ptr + PCI_MSI_DATA_64, irq + 32);
+            } else {
+                // 32bit
+                am.write32(ops, loc, cap_ptr + PCI_MSI_DATA_32, irq + 32);
+            }
 
             // enable MSI interrupt, assuming 64bit for now
-            let orig_ctrl = am.read32(ops, loc, cap_ptr + PCI_MSI_CTRL_CAP);
+            //let orig_ctrl = am.read32(ops, loc, cap_ptr + PCI_MSI_CTRL_CAP);
             am.write32(ops, loc, cap_ptr + PCI_MSI_CTRL_CAP, orig_ctrl | 0x10000);
             debug!(
                 "MSI control {:#b}, enabling MSI interrupt {}",
@@ -114,7 +124,7 @@ unsafe fn enable(loc: Location) -> Option<u32> {
                 irq
             );
             msi_found = true;
-            break;
+            //break; //from new rCore code xiaoluoyuan@163.com
         }
         debug!("PCI device has cap id {} at {:#X}", cap_id, cap_ptr);
         cap_ptr = am.read8(ops, loc, cap_ptr + 1) as u16;
@@ -126,6 +136,8 @@ unsafe fn enable(loc: Location) -> Option<u32> {
         am.write32(ops, loc, PCI_COMMAND, (orig | 0xf) as u32);
         debug!("MSI not found, using PCI interrupt");
     }
+
+    info!("pci device enable done");
 
     assigned_irq
 }
@@ -169,6 +181,8 @@ pub fn init_driver(dev: &PCIDevice) {
                 );
             }
         }
+        // 这里也能找到硬盘，只是与dev.id.class寻找方式重复了
+        /*
         (0x8086, 0x2922) => {
             // 82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller [AHCI mode]
             if let Some(BAR::Memory(addr, len, _, _)) = dev.bars[5] {
@@ -181,7 +195,20 @@ pub fn init_driver(dev: &PCIDevice) {
                     .insert(dev.loc, ahci::init(irq, vaddr, len as usize));
             }
         }
+        */
         _ => {}
+    }
+    if dev.id.class == 0x01 && dev.id.subclass == 0x06 {
+        // Mass storage class
+        // SATA subclass
+        if let Some(BAR::Memory(addr, len, _, _)) = dev.bars[5] {
+            info!("Found AHCI dev {:?} BAR5 {:x?}", dev, addr);
+            let irq = unsafe { enable(dev.loc) };
+            assert!(len as usize <= PAGE_SIZE);
+            let vaddr = KERNEL_OFFSET + addr as usize;
+            active_table().map(vaddr, addr as usize);
+            PCI_DRIVERS.lock().insert(dev.loc, ahci::init(irq, vaddr, len as usize));
+        }
     }
 }
 

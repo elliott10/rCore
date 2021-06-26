@@ -1,6 +1,6 @@
 //! Implement Device
 
-use rcore_fs::dev::*;
+use rcore_fs::dev::{self, *};
 use spin::RwLock;
 
 #[cfg(target_arch = "x86_64")]
@@ -19,34 +19,47 @@ impl MemBuf {
 }
 
 impl Device for MemBuf {
-    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Option<usize> {
+    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
         let slice = self.0.read();
         let len = buf.len().min(slice.len() - offset);
         buf[..len].copy_from_slice(&slice[offset..offset + len]);
-        Some(len)
+        Ok(len)
     }
-    fn write_at(&self, offset: usize, buf: &[u8]) -> Option<usize> {
+    fn write_at(&self, offset: usize, buf: &[u8]) -> Result<usize> {
         let mut slice = self.0.write();
         let len = buf.len().min(slice.len() - offset);
         slice[offset..offset + len].copy_from_slice(&buf[..len]);
-        Some(len)
+        Ok(len)
+    }
+    fn sync(&self) -> Result<()> {
+        Ok(())
     }
 }
 
 #[cfg(target_arch = "x86_64")]
 impl BlockDevice for ide::IDE {
     const BLOCK_SIZE_LOG2: u8 = 9;
-    fn read_at(&self, block_id: usize, buf: &mut [u8]) -> bool {
+    fn read_at(&self, block_id: usize, buf: &mut [u8]) -> dev::Result<()> {
         use core::slice;
         assert!(buf.len() >= ide::BLOCK_SIZE);
         let buf =
             unsafe { slice::from_raw_parts_mut(buf.as_ptr() as *mut u32, ide::BLOCK_SIZE / 4) };
-        self.read(block_id as u64, 1, buf).is_ok()
+        match self.read(block_id as u64, 1, buf).is_ok() {
+            true => Ok(()),
+            false => Err(DevError),
+        }
     }
-    fn write_at(&self, block_id: usize, buf: &[u8]) -> bool {
+    fn write_at(&self, block_id: usize, buf: &[u8]) -> dev::Result<()> {
         use core::slice;
         assert!(buf.len() >= ide::BLOCK_SIZE);
         let buf = unsafe { slice::from_raw_parts(buf.as_ptr() as *mut u32, ide::BLOCK_SIZE / 4) };
-        self.write(block_id as u64, 1, buf).is_ok()
+        match self.write(block_id as u64, 1, buf).is_ok() {
+            true => Ok(()),
+            false => Err(DevError),
+        }
+    }
+
+    fn sync(&self) -> dev::Result<()> {
+        Ok(())
     }
 }

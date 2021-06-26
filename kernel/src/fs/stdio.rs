@@ -90,11 +90,11 @@ macro_rules! impl_inode {
         fn move_(&self, _old_name: &str, _target: &Arc<INode>, _new_name: &str) -> Result<()> { Err(FsError::NotDir) }
         fn find(&self, _name: &str) -> Result<Arc<INode>> { Err(FsError::NotDir) }
         fn get_entry(&self, _id: usize) -> Result<String> { Err(FsError::NotDir) }
-        fn io_control(&self, cmd: u32, data: usize) -> Result<()> {
+        fn io_control(&self, cmd: u32, data: usize) -> Result<usize> {
             match cmd {
                 TCGETS | TIOCGWINSZ | TIOCSPGRP => {
                     // pretend to be tty
-                    Ok(())
+                    Ok(0)
                 },
                 TIOCGPGRP => {
                     // pretend to be have a tty process group
@@ -102,7 +102,7 @@ macro_rules! impl_inode {
                     unsafe {
                         *(data as *mut u32) = 0
                     };
-                    Ok(())
+                    Ok(0)
                 }
                 _ => Err(FsError::NotSupported)
             }

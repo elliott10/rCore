@@ -810,6 +810,12 @@ impl From<FsError> for SysError {
             FsError::DirNotEmpty => SysError::ENOTEMPTY,
             FsError::WrongFs => SysError::EINVAL,
             FsError::DeviceError => SysError::EIO,
+            FsError::IOCTLError => SysError::EINVAL,
+            FsError::NoDevice => SysError::EINVAL,
+            FsError::Again => SysError::EAGAIN,
+            FsError::SymLoop => SysError::ELOOP,
+            FsError::Busy => SysError::EBUSY,
+            FsError::Interrupted => SysError::EINTR,
         }
     }
 }
